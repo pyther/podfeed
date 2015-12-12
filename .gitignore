@@ -1,0 +1,4 @@
+/app/cache/
+*.pyc
+*.swp
+/app/settings.py

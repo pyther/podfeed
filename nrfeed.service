@@ -1,0 +1,13 @@
+[Unit]
+Description=uWSGI instance to server nrfeed
+After=network.target
+
+[Service]
+User=uwsgi
+Group=nginx
+WorkingDirectory=/srv/www/nrfeed
+ExecStart=/usr/sbin/uwsgi --ini nrfeed.ini
+
+[Install]
+WantedBy=multi-user.target
+
