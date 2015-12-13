@@ -26,6 +26,12 @@ The following modification are made to feed returned by the API
    - Podcast image: replace generic npr image with show specific image
 
 
+## Testing
+
+ - install python-flask and python-flask-cache `$ yum install python-flask python-flask-cache`
+ - run `$ python wsgi.py`
+ - open 'http://localhost:5000'
+
 ## Screenshots
 
 ### Firefox
@@ -34,8 +40,18 @@ The following modification are made to feed returned by the API
 ### Pocket Cast (Android)
 ![Pocket Cast](/img/pocketcast.png?raw=true)
 
-## Installation
-
-### Requirements
+## Requirements
   - python-flask
   - python-flask-cache
+
+## Installation
+This is a flask application. There are numerous installation guides online.
+Each environment is different.
+
+  - install as a flask app using your webserver of choice
+  - copy settings.py.dist to settings.py
+    - update `SERVER_NAME` and `API_KEY` variables
+    - API_KEY can be obtained from your NPR profile page
+  - copy `nrfeed.service` to `/etc/systemd/system/nrfeed.service`
+  - modify paths in 'nrfeed.service` as necessary
+
