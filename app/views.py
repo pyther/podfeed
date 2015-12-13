@@ -3,18 +3,16 @@ from app import app
 from settings import APP_CACHE, APP_STATIC, APP_ROOT
 from settings import API_KEY, SERVER_NAME
 
+from flask import Response
+from flask import abort
 from flask import url_for
 from flask import request
-from flask import abort
-from flask import Response
 from flask import render_template
 
 import requests
 import xml.etree.ElementTree as ET
 import os
-import datetime
 import urllib
-
 
 @app.route('/')
 @app.route('/index')
@@ -29,6 +27,7 @@ def debug_programs():
     return output
 
 @app.route('/podcast/<program>')
+@app.cache.cached(timeout=120)
 def podcast(program):
 
     # check program requested is valid
@@ -92,40 +91,13 @@ def program_match(name):
 
     return None
 
-
-def is_older_than(fname, seconds):
-    stat = os.stat(os.path.join(APP_CACHE, 'programs.xml'))
-    st_mtime = stat.st_mtime
-
-    now = datetime.datetime.now()
-    mtime = datetime.datetime.fromtimestamp(st_mtime)
-
-    if (now - mtime) > datetime.timedelta(seconds=seconds):
-        return True
-
-    return False
-
-def update_program_data():
+@app.cache.cached(timeout=3600, key_prefix='programs')
+def get_programs():
     req = requests.get('http://api.npr.org/list?id=3004')
     data = req.content
 
-    with open(os.path.join(APP_CACHE, 'programs.xml'), 'w') as fd:
-        fd.write(data)
-
-    return
-
-def get_programs():
-
-    cache_file = './cache/programs.xml'
-    if (os.path.isfile(cache_file) and
-        is_older_than(cache_file, 86400)):
-            update_program_data()
-    else:
-        update_program_data()
-
-    tree = ET.parse(os.path.join(APP_CACHE, 'programs.xml'))
-    root = tree.getroot()
-    #root = ET.fromstring(data)
+    root = ET.fromstring(data)
     progs = {elem.attrib['id']: elem.find('title').text for elem in root.findall('item')}
 
     return progs
+
