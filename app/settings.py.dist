@@ -1,8 +1,0 @@
-import os
-
-SERVER_NAME = 'npr.example.com'
-API_KEY = 'DEMO_API_KEY'
-
-APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-APP_STATIC = os.path.join(APP_ROOT, 'static')
-APP_CACHE = os.path.join(APP_ROOT, 'cache')

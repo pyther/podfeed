@@ -40,18 +40,34 @@ The following modification are made to feed returned by the API
 ### Pocket Cast (Android)
 ![Pocket Cast](/img/pocketcast.png?raw=true)
 
-## Requirements
-  - python-flask
-  - python-flask-cache
+# Testing / Development
+To get going and start the development webserver run the following commands
+```
+$ virtualenv-3 venv
+$ source ./venv/bin/activate
+$ python setup.py develop
+$ mkdir etc
+$ echo '{"api_key": "PUT_API_KEY_HERE"}' > ./etc/nrfeed.json
+$ python run.py
+```
 
 ## Installation
-This is a flask application. There are numerous installation guides online.
-Each environment is different.
+Flask application can be deployed and number of ways. With that said, below are
+the steps I used.
 
-  - install as a flask app using your webserver of choice
-  - copy settings.py.dist to settings.py
-    - update `SERVER_NAME` and `API_KEY` variables
-    - API_KEY can be obtained from your NPR profile page
-  - copy `nrfeed.service` to `/etc/systemd/system/nrfeed.service`
-  - modify paths in 'nrfeed.service` as necessary
-
+```
+$ useradd -r webapp
+$ git clone https://github.com/pyther/nrfeed.git
+$ cd nrfeed
+$ mkdir /opt/nrfeed
+$ virtualenv-3 /opt/nrfeed
+$ source /opt/nrfeed/bin/activate
+$ python setup.py install
+$ cp systemd/gunicorn.service /etc/systemd/system/gunicorn.service
+$ cp systemd/gunicorn.tmpfile /etc/tmpfiles.d/gunicorn.conf
+$ echo '{"api_key": "PUT_API_KEY_HERE"}' > /opt/nrfeed/etc/nrfeed.json
+$ systemd-tmpfiles --create /etc/tmpfiles.d/gunicorn.conf
+$ systemctl enable gunicorn.service
+$ systemctl start gunicorn.service
+$ cp systemd/nginx.conf /etc/nginx/conf.d/npr.conf
+```

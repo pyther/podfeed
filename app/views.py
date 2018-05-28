@@ -1,18 +1,16 @@
-from app import app
+from . import app
 
-from settings import APP_CACHE, APP_STATIC, APP_ROOT
-from settings import API_KEY, SERVER_NAME
+import json
+import os
+import xml.etree.ElementTree as ET
 
+import flask
 from flask import Response
 from flask import abort
 from flask import url_for
 from flask import request
 from flask import render_template
-
 import requests
-import xml.etree.ElementTree as ET
-import os
-import urllib
 
 @app.route('/')
 @app.route('/index')
@@ -20,84 +18,95 @@ def index():
     return render_template('index.html')
 
 @app.route('/debug/programs')
-def debug_programs():
-    output = ''
-    for k,v in get_programs().iteritems():
-        output += '{0}:{1}\n'.format(k, v)
-    return output
+def debug_programs() -> str:
+    programs = [f'{k}:{v}' for k, v in get_programs().items()]
+    return '\n'.join(programs)
 
-@app.route('/podcast/<program>')
-@app.cache.cached(timeout=120)
-def podcast(program):
+@app.cache.cached(timeout=3600, key_prefix='programs')
+def get_programs() -> dict:
+    req = requests.get('http://api.npr.org/list?id=3004')
+    data = req.content
 
-    # check program requested is valid
+    root = ET.fromstring(data)
+    programs = {elem.attrib['id']: elem.find('title').text for elem in root.findall('item')}
+
+    return programs
+
+def is_number(s):
     try:
-        pid, pname = program_match(program)
-    except TypeError:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
+def find_program(name):
+    programs = get_programs()
+
+    # Match a program id
+    if is_number(name):
+        for key, value in programs.items():
+            if key == name:
+                return (key, value)
         abort(404)
+
+    # Match a program name
+    for key, value in programs.items():
+        print(value)
+        print(name)
+        if value.lower().replace(' ', '') == name.lower():
+            return (key, value)
+    abort(404)
+
+def get_api_key():
+    """ Tries to read api key from config file """
+    paths = ['./etc/nrfeed.json', '/etc/nrfeed.json']
+    for path in paths:
+        if os.path.isfile(path):
+            config = json.load(open(path, 'r'))
+            return config['api_key']
+
+    raise RuntimeError('api key could not be loaded from configuration file')
+
+
+@app.route('/podcast/<name>')
+@app.cache.cached(timeout=120)
+def podcast(name):
+
+    pod_id, pod_name = find_program(name)
 
     numResults = request.args.get('numResults')
     if not numResults:
         numResults = '50'
 
     params = {
-        'id':pid,
-        'dateType':'story',
-        'output':'Podcast',
-        'searchType':'fullContent',
-        'numResults':numResults,
-        'apiKey':API_KEY
+        'id': pod_id,
+        'dateType': 'story',
+        'output': 'Podcast',
+        'searchType': 'fullContent',
+        'numResults': numResults,
+        'apiKey': get_api_key()
     }
 
-    url = 'http://api.npr.org/query?{0}'.format(urllib.urlencode(params))
-    req = requests.get(url)
+    url = 'http://api.npr.org/query'
+    req = requests.get(url, params=params)
 
     if req.status_code != 200:
-        abort(req.status_code)
+        abort(500)
 
     data = req.content
     root = ET.fromstring(data)
 
-    ET.register_namespace('itunes', 'http://www.itunes.com/dtds/podcast-1.0.dtd')
-
     namespaces = {'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd'}
+    ET.register_namespace('itunes', 'http://www.itunes.com/dtds/podcast-1.0.dtd')
 
     # fix title
     root.find('channel/title').text = root.find('channel/title').text.replace('NPR Programs: ', '')
 
     # update generic image
-    if os.path.isfile(os.path.join(APP_STATIC, 'images/{0}.jpg'.format(pid))):
-        new_image = 'http://{0}{1}'.format(SERVER_NAME, url_for('static', filename='images/{0}.jpg'.format(pid)))
-        root.find('channel/image/url').text = new_image
-        root.find('channel/itunes:image', namespaces).attrib['href'] = new_image
+    image = url_for('static', filename=f'images/{pod_id}.jpg')
+    image_url = f'http://{flask.request.host}{image}'
+    root.find('channel/image/url').text = image_url
+    root.find('channel/itunes:image', namespaces).attrib['href'] = image_url
 
     xml = ET.tostring(root)
     return Response(xml, mimetype='text/xml')
-
-def program_match(name):
-    programs = get_programs()
-
-    pid = None
-    for key,value in programs.iteritems():
-        if name == key:
-            return (key, value)
-        elif name == value:
-            return (key, value)
-
-        alt_value = value.replace(' ', '').lower()
-
-        if name.lower() == alt_value:
-            return (key, value)
-
-    return None
-
-@app.cache.cached(timeout=3600, key_prefix='programs')
-def get_programs():
-    req = requests.get('http://api.npr.org/list?id=3004')
-    data = req.content
-
-    root = ET.fromstring(data)
-    progs = {elem.attrib['id']: elem.find('title').text for elem in root.findall('item')}
-
-    return progs
-
