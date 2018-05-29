@@ -11,11 +11,11 @@ from flask import url_for
 from flask import request
 from flask import render_template
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from flask_limiter.util import get_ipaddr
 
 import requests
 
-limiter = Limiter(app, key_func=get_remote_address)
+limiter = Limiter(app, key_func=get_ipaddr)
 for handler in app.logger.handlers:
     limiter.logger.addHandler(handler)
 
@@ -74,7 +74,7 @@ def get_api_key():
 
 
 @app.route('/podcast/<name>')
-@limiter.limit("240/day; 50/hour")
+@limiter.limit("240/day; 30/hour")
 @app.cache.cached(timeout=600)
 def podcast(name):
     pod_id, pod_name = find_program(name)
