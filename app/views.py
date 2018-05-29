@@ -74,8 +74,8 @@ def get_api_key():
 
 
 @app.route('/podcast/<name>')
-@limiter.limit("500/day; 120/hour")
-@app.cache.cached(timeout=120)
+@limiter.limit("240/day; 50/hour")
+@app.cache.cached(timeout=600)
 def podcast(name):
     pod_id, pod_name = find_program(name)
 
