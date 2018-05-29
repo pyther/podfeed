@@ -7,5 +7,5 @@ setup(
     packages=['app'],
     include_package_data=True,
     zip_safe=False,
-    install_requires=['Flask', 'flask-caching', 'requests']
+    install_requires=['Flask', 'flask-caching', 'requests', 'flask_limiter']
 )

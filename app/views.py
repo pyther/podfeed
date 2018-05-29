@@ -10,7 +10,14 @@ from flask import abort
 from flask import url_for
 from flask import request
 from flask import render_template
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 import requests
+
+limiter = Limiter(app, key_func=get_remote_address)
+for handler in app.logger.handlers:
+    limiter.logger.addHandler(handler)
 
 @app.route('/')
 @app.route('/index')
@@ -51,8 +58,6 @@ def find_program(name):
 
     # Match a program name
     for key, value in programs.items():
-        print(value)
-        print(name)
         if value.lower().replace(' ', '') == name.lower():
             return (key, value)
     abort(404)
@@ -69,9 +74,9 @@ def get_api_key():
 
 
 @app.route('/podcast/<name>')
+@limiter.limit("500/day; 120/hour")
 @app.cache.cached(timeout=120)
 def podcast(name):
-
     pod_id, pod_name = find_program(name)
 
     numResults = request.args.get('numResults')
