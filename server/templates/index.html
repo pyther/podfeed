@@ -1,0 +1,97 @@
+<!doctype html>
+<head>
+<title>NPR Podcast Feeds</title>
+<link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+<style type="text/css">
+body {
+  background-color: #666666;
+  color: #F0F0F0;
+  font-family: 'Open Sans', sans-serif;
+}
+
+h1 {
+   margin-top: 0.5em;
+   text-align: center;
+   font-size: 3.5em;
+   font-weight: bold
+}
+
+#podcasts {
+  padding: 0 1em;
+  text-align: center;
+  width: 60%;
+  margin: 0 auto;
+}
+
+#podcasts ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+#podcasts ul li {
+  display: inline-block;
+  margin-right: 20px;
+  margin-bottom: 10px;
+}
+
+#podcasts ul li p {
+  font-size: 0.8em;
+  margin-top: 0;
+}
+
+#podcasts img {
+}
+
+#note{
+  padding: 0 1em;
+  font-size: 1em;
+  text-align: left;
+}
+
+#footer{
+  padding: 0 1em;
+  font-size: 0.8em;
+  text-align: left;
+}
+
+a {
+  color: #F0F0F0;
+}
+
+a:visited {
+  color: #F0F0F0;
+}
+</style>
+</head>
+<body>
+  <div id="podcasts">
+    <h1>Podcasts</h1>
+    <ul>
+      <li>
+        <a href="/podcast/all-things-considered"><img src="/static/images/all-things-considered.jpg" alt="All Things Considered"/></a>
+      </li>
+      <li>
+        <a href="/podcast/morning-edition"><img src="/static/images/morning-edition.jpg" alt="Morning Edition"/></a>
+      </li>
+    </ul>
+    <ul>
+      <li>
+        <a href="/podcast/weekend-edition-saturday"><img src="/static/images/weekend-edition-saturday.jpg" alt="Weekend Edition Saturday"/></a>
+      </li>
+      <li>
+        <a href="/podcast/weekend-edition-sunday"><img src="/static/images/weekend-edition-sunday.jpg" alt="Weekend Edition Sunday"/></a>
+      </li>
+    </ul>
+    <div id="note">
+      <p>Feeds are updated on-demand and cached for 15 minutes. Excessive requests will be rate limited.</p>
+    </div>
+    <div id="footer">
+      <p>The RSS feeds provided on this site are generated using data from the NPR website. Source code for this
+    website can be found on <a href="https://github.com/pyther/nrfeed/">github</a>. This site is not affiliated, associated, authorized, endorsed by, or in any way officially connected with NPR.
+    </div>
+  </div>
+  <div>
+
+</body>
+</html>
