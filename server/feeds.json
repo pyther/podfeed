@@ -3,28 +3,24 @@
     "title": "Morning Edtion",
     "author": "NPR",
     "url": "https://www.npr.org/programs/morning-edition/",
-    "description": "Morning Edition is an American radio news program produced and distributed by NPR.",
-    "image_id": 3
+    "description": "Morning Edition is an American radio news program produced and distributed by NPR."
   },
   "all-things-considered": {
     "title": "All Things Considered",
     "author": "NPR",
     "url": "https://www.npr.org/programs/all-things-considered/",
-    "description": "All Things Considered combines news, analysis, commentary, interviews, and special features broadcast live daily from 4:00 p.m. to 6:00 p.m. Eastern Time",
-    "image_id": 2
+    "description": "All Things Considered combines news, analysis, commentary, interviews, and special features broadcast live daily from 4:00 p.m. to 6:00 p.m. Eastern Time"
   },
   "weekend-edition-saturday": {
     "title": "Weekend Edition Sunday",
     "author": "NPR",
     "url": "https://www.npr.org/programs/weekend-edition-saturday/",
-    "description": "Saturday mornings are made for Weekend Edition Saturday, the program wraps up the week's news and offers a mix of analysis and features on a wide range of topics, including arts, sports, entertainment, and human interest stories.",
-    "image_id": 7
+    "description": "Saturday mornings are made for Weekend Edition Saturday, the program wraps up the week's news and offers a mix of analysis and features on a wide range of topics, including arts, sports, entertainment, and human interest stories."
   },
   "weekend-edition-sunday": {
     "title": "Weekend Edition Sunday",
     "author": "NPR",
     "url": "https://www.npr.org/programs/weekend-edition-sunday/",
-    "description": "Weekend Edition Sunday features interviews with newsmakers, artists, scientists, politicians, musicians, writers, theologians and historians.",
-    "image_id": 10
+    "description": "Weekend Edition Sunday features interviews with newsmakers, artists, scientists, politicians, musicians, writers, theologians and historians."
   }
 }
