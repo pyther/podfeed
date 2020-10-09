@@ -27,9 +27,8 @@ from flask_limiter.util import get_ipaddr
 
 import pickledb
 
-CACHE_TIMEOUT = 600
-#RETRY_LIMIT = 60
-RETRY_LIMIT = 5
+CACHE_TIMEOUT = 120
+RETRY_LIMIT = 30
 
 limiter = Limiter(app, key_func=get_ipaddr, default_limits=['30/minute', '120/hour', '1440/day'])
 for handler in app.logger.handlers:
@@ -159,8 +158,7 @@ def get_feed(name):
     if not is_cache_expired(name):
         return serve_cache(name)
 
-    # Cache is expired, but we attempted to build an rss feed and it presumably failed
-    # Rate limit per feed, so we don't send too many requests to the remote server
+    # Check if the last generation failed. Wait RETRY_LIMIT before trying again.
     db = load_cache_db(name)
     last_failed = db.get('failed')
     if last_failed:
