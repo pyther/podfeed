@@ -7,5 +7,5 @@ setup(
     packages=['server'],
     include_package_data=True,
     zip_safe=False,
-    install_requires=['flask', 'BeautifulSoup4', 'requests', 'pickledb', 'flask_limiter']
+    install_requires=['flask', 'BeautifulSoup4', 'requests', 'pickledb']
 )

@@ -22,17 +22,10 @@ from flask import render_template
 from flask import make_response
 #from flask import current_app as app
 
-from flask_limiter import Limiter
-from flask_limiter.util import get_ipaddr
-
 import pickledb
 
 CACHE_TIMEOUT = 120
 RETRY_LIMIT = 30
-
-limiter = Limiter(app, key_func=get_ipaddr, default_limits=['30/minute', '120/hour', '1440/day'])
-for handler in app.logger.handlers:
-    limiter.logger.addHandler(handler)
 
 @app.route('/')
 @app.route('/index')
@@ -192,13 +185,11 @@ def get_feed(name):
 
     return response
 
-#@limiter.limit("240/day; 30/hour")
 @app.route('/podcast/all-things-considered')
 @app.route('/podcast/2')
 def podcast_all_things_considered():
     return get_feed('all-things-considered')
 
-#@limiter.limit("240/day; 30/hour")
 @app.route('/podcast/morning-edition')
 @app.route('/podcast/3')
 def podcast_morning_edition():
