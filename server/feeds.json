@@ -3,24 +3,24 @@
     "title": "Morning Edtion",
     "author": "NPR",
     "url": "https://www.npr.org/programs/morning-edition/",
-    "description": "Morning Edition is an American radio news program produced and distributed by NPR."
+    "image": "https://media.npr.org/assets/img/2018/08/06/npr_me_podcasttile_wide-969cbfd2aafe6f86608c68c85211c5d7f586fed3.jpg?s=200"
   },
   "all-things-considered": {
     "title": "All Things Considered",
     "author": "NPR",
     "url": "https://www.npr.org/programs/all-things-considered/",
-    "description": "All Things Considered combines news, analysis, commentary, interviews, and special features broadcast live daily from 4:00 p.m. to 6:00 p.m. Eastern Time"
+    "image": "https://media.npr.org/assets/img/2018/08/06/npr_atc_podcasttile_wide-e2b4c03cdc26e733bd20adbece688c8597ee794b.jpg?s=200"
   },
   "weekend-edition-saturday": {
     "title": "Weekend Edition Saturday",
     "author": "NPR",
     "url": "https://www.npr.org/programs/weekend-edition-saturday/",
-    "description": "Saturday mornings are made for Weekend Edition Saturday, the program wraps up the week's news and offers a mix of analysis and features on a wide range of topics, including arts, sports, entertainment, and human interest stories."
+    "image": "https://media.npr.org/branding/programs/weekend-edition-saturday/branding_main-d0bd6f155cc3ddffb25d3f03da1fcb47609ac95f.png"
   },
   "weekend-edition-sunday": {
     "title": "Weekend Edition Sunday",
     "author": "NPR",
     "url": "https://www.npr.org/programs/weekend-edition-sunday/",
-    "description": "Weekend Edition Sunday features interviews with newsmakers, artists, scientists, politicians, musicians, writers, theologians and historians."
+    "image": "https://media.npr.org/branding/programs/weekend-edition-sunday/branding_main-a0a328ae8047f82c76e8b590e368bcb9055cb5d4.png"
   }
 }
