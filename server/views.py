@@ -67,6 +67,22 @@ class Cache():
         response.headers['Content-Type'] = 'application/xml'
         return response
 
+    def load(self):
+        try:
+            obj = jsonpickle.decode(open(f'/dev/shm/nrfeed_{self.name}.json').read())
+        except FileNotFoundError:
+            return
+
+        self.rss = obj.rss
+        self.raw = obj.raw
+        self.generated = obj.generated
+        self.fetched = obj.fetched
+
+    def save(self):
+        with open(f'/dev/shm/nrfeed_{self.name}.json', 'w') as fd:
+            fd.write(jsonpickle.encode(self))
+        app.logger.debug(f"[{self.name}] cache saved to disk")
+
 
 # Application needs to be restarted if feeds.json changes
 @functools.lru_cache
@@ -136,7 +152,6 @@ def find_image(soup, name):
 
     raise ValueError
 
-
 def generate_rss(cache, name, meta):
     soup = BeautifulSoup(cache.raw, features="html.parser")
 
@@ -183,15 +198,6 @@ def generate_rss(cache, name, meta):
     return template
 
 
-def load_cache(name):
-    cache = jsonpickle.decode(open(f'/dev/shm/nrfeed_{name}.json').read())
-    return cache
-
-
-def save_cache(name, obj):
-    with open(f'/dev/shm/nrfeed_{name}.json', 'w') as fd:
-        fd.write(jsonpickle.encode(obj))
-    app.logger.debug(f"[{name}] cache saved to disk")
 
 
 def get_feed_name(id_):
@@ -208,7 +214,7 @@ def get_feed_name(id_):
 
 
 # Check if cache has expired every 10 seconds, serve from cache otherwise
-@lru_cache(10)
+@lru_cache(1)
 def feed(name):
     # Return 404 if feed not in feeds.json
     try:
@@ -217,33 +223,27 @@ def feed(name):
         abort(404)
 
     # Load Cache
-    try:
-        cache = load_cache(name)
-    except FileNotFoundError:
-        cache = Cache(name)
+    cache = Cache(name)
+    cache.load()
 
     # Retun RSS if cache is valid
     if cache.age <= CACHE_TIMEOUT:
         return cache.response()
 
     app.logger.debug(f"[{name}] cache expired: {CACHE_TIMEOUT} > {cache.age}")
-    # Get a lock. If we can't get a lock, another worker is updating the cache.
-    lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-    try:
-        lock_socket.bind('\0nrfeed_'+name)
-    except socket.error:
-        # another instance is trying to update the cache, serve cache or throw a 500
-        app.logger.debug(f"[{name}] unable to secure lock, serving cache copied of the content")
-        return cache.response()
-
     # Update cache
-    req = get_source_url(meta['url'])
-    if req.ok:
-        cache.set_raw(req.text)
-        app.logger.debug(f"[{name}] fetched newest data")
+    try:
+        req = get_source_url(meta['url'])
+    except Exception as e:
+        app.logger.error(f"[{name}] connection error: {e}")
+        abort(503, 'remote server unavailable')
     else:
-        app.logger.debug(f"[{name}] serving from cache. remote server: [{req.status_code}] {req.text}d")
-        return cache.response()
+        if req.ok:
+            cache.set_raw(req.text)
+            app.logger.debug(f"[{name}] fetched newest data")
+        else:
+            app.logger.error(f"[{name}] {meta['url']} responded [{req.status_code}]")
+            abort(503, 'request to remote server was unsuccessful')
 
     # Generate RSS XML
     rss = generate_rss(cache, name, meta)
@@ -251,8 +251,7 @@ def feed(name):
     cache.set_rss(rss)
 
     # Write cache, close lock, return response
-    save_cache(name, cache)
-    lock_socket.close()
+    cache.save()
     return cache.response()
 
 
