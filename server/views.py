@@ -1,46 +1,85 @@
-from server import app
-
 import base64
 import binascii
+import functools
 import json
 import os
 import time
 import socket
 import re
 import calendar
-
 from xml.sax.saxutils import escape
 
+import jsonpickle
 import requests
 
 from bs4 import BeautifulSoup
-
-import flask
 from flask import abort
-from flask import url_for
 from flask import render_template
 from flask import make_response
-#from flask import current_app as app
 
-import pickledb
+from server import app
 
-CACHE_TIMEOUT = 120
-RETRY_LIMIT = 30
+CACHE_TIMEOUT = 300
 
-@app.route('/')
-@app.route('/index')
-def index():
-    feeds = json.load(open(os.path.join(app.root_path, 'feeds.json')))
-    return render_template('index.html', feeds=feeds)
 
-def rfc2822_date(year, month, day, time, zone):
+def lru_cache(timeout: int, maxsize: int = 128, typed: bool = False):
+    def wrapper_cache(func):
+        func = functools.lru_cache(maxsize=maxsize, typed=typed)(func)
+        func.delta = timeout * 10 ** 9
+        func.expiration = time.monotonic_ns() + func.delta
+
+        @functools.wraps(func)
+        def wrapped_func(*args, **kwargs):
+            if time.monotonic_ns() >= func.expiration:
+                func.cache_clear()
+                func.expiration = time.monotonic_ns() + func.delta
+            return func(*args, **kwargs)
+
+        wrapped_func.cache_info = func.cache_info
+        wrapped_func.cache_clear = func.cache_clear
+        return wrapped_func
+    return wrapper_cache
+
+
+class Cache():
+    def __init__(self, key):
+        self.name = key
+        self.raw = None
+        self.rss = None
+        self.timestamp = 0
+
+    def set_rss(self, text):
+        self.rss = text
+        self.timestamp = time.monotonic()
+
+    @property
+    def age(self):
+        return int(time.monotonic() - self.timestamp)
+
+    def response(self):
+        response = make_response(self.rss)
+        response.headers['Content-Type'] = 'application/xml'
+        return response
+
+
+# Application needs to be restarted if feeds.json changes
+@functools.lru_cache
+def get_feeds():
+    return json.load(open(os.path.join(app.root_path, 'feeds.json')))
+
+
+def rfc2822_date(year, month, day, timestamp, zone):
     year = int(year)
     month = int(month)
     day = int(day)
     dow = calendar.weekday(year, month, day)
-    return f"{calendar.day_abbr[dow]}, {day:02d} {calendar.month_abbr[month]} {year} {time} {zone}"
+    return f"{calendar.day_abbr[dow]}, {day:02d} {calendar.month_abbr[month]} {year} {timestamp} {zone}"
 
-def generate_items(data):
+
+def get_items(data):
+    """
+    Generates a list of items based on a the json data fetched from the source site
+    """
     items = []
     for segment in data['audioData']:
         title = escape(segment['title'])
@@ -51,9 +90,9 @@ def generate_items(data):
             except binascii.Error:
                 continue
         audio_url, audio_query = audio_url.split('?', 1)
-        year, month, day = re.match('.*/(\d{4})(\d{2})(\d{2}).*\.mp3', audio_url).groups()
+        year, month, day = re.match(r'.*/(\d{4})(\d{2})(\d{2}).*\.mp3', audio_url).groups()
         pub_date = rfc2822_date(year, month, day, '12:00:00', 'EST')
-        audio_query = {k:v for k, v in (x.split('=', 1) for x in audio_query.split('&'))}
+        audio_query = {k: v for k, v in (x.split('=', 1) for x in audio_query.split('&'))}
         audio_size = audio_query['size']
         story_url = segment['storyUrl']
         duration = segment['duration']
@@ -70,17 +109,59 @@ def generate_items(data):
         items.append(values)
     return items
 
-def generate_feed(url, title, author, description, image):
-    req = requests.get(url, timeout=5)
-    req.raise_for_status()
-    soup = BeautifulSoup(req.text, features="html.parser")
+
+# One request per minute per URL. If there is a bug we don't want to kill the remote server.
+@lru_cache(60)
+def get_source_url(url):
+    return requests.get(url, timeout=5)
+
+
+def find_image(soup, name):
+    try:
+        return soup.findAll('img', {"class": "branding__image-title"})[0]['src']
+    except IndexError:
+        pass
+
+    # See if we can find a logo based on name
+    try:
+        return soup.findAll('img', {"src": re.compile(name)})[0]['src']
+    except IndexError:
+        pass
+
+    raise ValueError
+
+
+def generate_rss(raw, name, meta):
+    soup = BeautifulSoup(raw, features="html.parser")
 
     play_all = soup.findAll(attrs={'data-play-all': True})
     items = []
     for xml in play_all:
         data = xml.get('data-play-all')
         jdata = json.loads(data)
-        items += generate_items(jdata)
+        items += get_items(jdata)
+
+    title, author = [x.strip() for x in soup.title.text.split(':')]
+    if 'title' in meta:
+        title = meta['title']
+
+    if 'author' in meta:
+        author = meta['author']
+
+    if 'image' in meta:
+        image = meta['image']
+    else:
+        try:
+            image = find_image(soup, name)
+        except ValueError:
+            image = ''
+
+    if 'description' not in meta:
+        description = f"Auto-generated by nrfeed. Data sourced from {meta['url']}. Report issues to https://github.com/pyther/nrfeed/issues"
+    else:
+        description = meta['description']
+
+    url = meta['url']
 
     values = {
         'title': title,
@@ -94,113 +175,90 @@ def generate_feed(url, title, author, description, image):
     template = render_template('podcast.xml', **values)
     return template
 
-def load_cache_db(name):
-    return pickledb.load(f'/tmp/nrfeed_{name}.json', False, False)
 
-def is_cache_expired(name):
+def load_cache(name):
+    cache = jsonpickle.decode(open(f'/dev/shm/nrfeed_{name}.json').read())
+    return cache
 
-    db = load_cache_db(name)
-    if not db.exists('generated'):
-        return True
 
-    # Has cached expired?
-    age = int(time.time()) - db.get('generated')
-    if age > CACHE_TIMEOUT:
-        app.logger.debug('[%s] cache expired; %d > %d', name, age, CACHE_TIMEOUT)
-        return True
+def save_cache(name, obj):
+    with open(f'/dev/shm/nrfeed_{name}.json', 'w') as fd:
+        fd.write(jsonpickle.encode(obj))
+    app.logger.debug(f"[{name}] cache saved to disk")
 
-    app.logger.debug('[%s] cache age %d, expiration %d', name, age, CACHE_TIMEOUT)
-    return False
 
-def serve_cache(name):
+def get_feed_name(id_):
+    feeds = get_feeds()
 
-    db = load_cache_db(name)
-    if not db.exists('xml'):
-        app.logger.error('exception occured while trying to serve from cache: %s')
-        abort(500, 'no data to serve. external connection error.')
+    if id_ in feeds:
+        return id_
 
-    app.logger.debug('[%s] served from cache', name)
-    response = make_response(db.get('xml'))
-    response.headers['Content-Type'] = 'application/xml'
-    return response
+    if id_.isdigit():
+        for key, value in feeds.items():
+            if int(id_) == value['id']:
+                return key
+    raise ValueError
 
-def serve_rss(name):
 
-    feeds = json.load(open(os.path.join(app.root_path, 'feeds.json')))
-    data = feeds[name]
-    desc = f"Auto-generated by nrfeed. Data sourced from {data['url']}. Report issues to https://github.com/pyther/nrfeed/issues"
+# Check if cache has expired every 10 seconds, serve from cache otherwise
+@lru_cache(10)
+def feed(name):
+    # Return 404 if feed not in feeds.json
+    try:
+        meta = get_feeds()[name]
+    except ValueError:
+        abort(404)
 
-    app.logger.debug('[%s] generating podcast rss', name)
-    xml = generate_feed(data['url'], data['title'], data['author'], desc, data['image'])
-    app.logger.info('[%s] rss generated', name)
+    # Load Cache
+    try:
+        cache = load_cache(name)
+    except FileNotFoundError:
+        cache = Cache(name)
 
-    # Update db cache
-    app.logger.debug('[%s] updating cache', name)
-    db = load_cache_db(name)
-    db.set('xml', xml)
-    db.set('generated', int(time.time()))
-    db.dump()
-    app.logger.info('[%s] cache updated', name)
+    # Retun RSS if cache is valid
+    if cache.age <= CACHE_TIMEOUT:
+        return cache.response()
 
-    response = make_response(xml)
-    response.headers['Content-Type'] = 'application/xml'
-    return response
-
-def get_feed(name):
-    # Cache is not expired, serve cached version
-    if not is_cache_expired(name):
-        return serve_cache(name)
-
-    # Check if the last generation failed. Wait RETRY_LIMIT before trying again.
-    db = load_cache_db(name)
-    last_failed = db.get('failed')
-    if last_failed:
-        diff = int(time.time()) - last_failed
-        if diff <= RETRY_LIMIT:
-            app.logger.debug('[%s] serving from cache, last failed build was %d seconds ago', name, diff)
-            return serve_cache(name)
-
-    # Try to build a new rss feed. If we can't get a lock, there is probably
-    # another worker updating the cache, so just serve from cache.
+    app.logger.debug(f"[{name}] cache expired: {CACHE_TIMEOUT} > {cache.age}")
+    # Get a lock. If we can't get a lock, another worker is updating the cache.
     lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     try:
         lock_socket.bind('\0nrfeed_'+name)
     except socket.error:
         # another instance is trying to update the cache, serve cache or throw a 500
-        app.logger.info('unable to secure lock, serving cache copied of the content')
-        return serve_cache(name)
+        app.logger.debug(f"[{name}] unable to secure lock, serving cache copied of the content")
+        return cache.response()
 
-    # we got a lock, now lets refresh the rss feed
+    # Update cache
+    req = get_source_url(meta['url'])
+    if req.ok:
+        cache.raw = req.text
+        app.logger.debug(f"[{name}] fetched newest data")
+    else:
+        app.logger.debug(f"[{name}] serving from cache. remote server: [{req.status_code}] {req.text}d")
+        return cache.response()
+
+    # Generate RSS XML
+    rss = generate_rss(cache.raw, name, meta)
+    app.logger.debug(f"[{name}] generated podcast rss")
+    cache.set_rss(rss)
+
+    # Write cache, close lock, return response
+    save_cache(name, cache)
+    lock_socket.close()
+    return cache.response()
+
+
+@app.route('/')
+@app.route('/index')
+def index():
+    return render_template('index.html', feeds=get_feeds())
+
+
+@app.route('/podcast/<_id>')
+def podcast(_id):
     try:
-        response = serve_rss(name)
-    except Exception as e:
-        app.logger.info('[%s] failed to generate rss. Exception %s', name, e)
-        response = serve_cache(name)
-        db = load_cache_db(name)
-        db.set(f"failed", int(time.time()))
-        db.dump()
-        raise e
-    finally:
-        lock_socket.close()
-
-    return response
-
-@app.route('/podcast/all-things-considered')
-@app.route('/podcast/2')
-def podcast_all_things_considered():
-    return get_feed('all-things-considered')
-
-@app.route('/podcast/morning-edition')
-@app.route('/podcast/3')
-def podcast_morning_edition():
-    return get_feed('morning-edition')
-
-@app.route('/podcast/weekend-edition-saturday')
-@app.route('/podcast/7')
-def podcast_weekend_edition_saturday():
-    return get_feed('weekend-edition-saturday')
-
-@app.route('/podcast/weekend-edition-sunday')
-@app.route('/podcast/10')
-def podcast_weekend_edition_sunday():
-    return get_feed('weekend-edition-sunday')
+        name = get_feed_name(_id)
+    except ValueError:
+        abort(404)
+    return feed(name)
