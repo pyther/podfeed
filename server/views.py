@@ -117,14 +117,14 @@ def get_source_url(url):
 
 
 def find_image(soup, name):
+    # See if we can find a logo based on name
     try:
-        return soup.findAll('img', {"class": "branding__image-title"})[0]['src']
+        return soup.findAll('img', {"src": re.compile(f"logos.*{name}")})[0]['src']
     except IndexError:
         pass
 
-    # See if we can find a logo based on name
     try:
-        return soup.findAll('img', {"src": re.compile(name)})[0]['src']
+        return soup.findAll('img', {"class": "branding__image-title"})[0]['src']
     except IndexError:
         pass
 
