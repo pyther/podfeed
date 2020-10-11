@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from flask import abort
 from flask import render_template
 from flask import make_response
+from flask import request
 
 from server import app
 
@@ -46,15 +47,20 @@ class Cache():
         self.name = key
         self.raw = None
         self.rss = None
-        self.timestamp = 0
+        self.fetched = 0
+        self.generated = 0
+
+    def set_raw(self, text):
+        self.raw = text
+        self.fetched = time.time()
 
     def set_rss(self, text):
         self.rss = text
-        self.timestamp = time.monotonic()
+        self.generated = time.time()
 
     @property
     def age(self):
-        return int(time.monotonic() - self.timestamp)
+        return int(time.time() - self.generated)
 
     def response(self):
         response = make_response(self.rss)
@@ -131,8 +137,8 @@ def find_image(soup, name):
     raise ValueError
 
 
-def generate_rss(raw, name, meta):
-    soup = BeautifulSoup(raw, features="html.parser")
+def generate_rss(cache, name, meta):
+    soup = BeautifulSoup(cache.raw, features="html.parser")
 
     play_all = soup.findAll(attrs={'data-play-all': True})
     items = []
@@ -170,6 +176,7 @@ def generate_rss(raw, name, meta):
         'description': description,
         'image_url': image,
         'items': items,
+        'buildDate': time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(cache.fetched)),
     }
 
     template = render_template('podcast.xml', **values)
@@ -232,14 +239,14 @@ def feed(name):
     # Update cache
     req = get_source_url(meta['url'])
     if req.ok:
-        cache.raw = req.text
+        cache.set_raw(req.text)
         app.logger.debug(f"[{name}] fetched newest data")
     else:
         app.logger.debug(f"[{name}] serving from cache. remote server: [{req.status_code}] {req.text}d")
         return cache.response()
 
     # Generate RSS XML
-    rss = generate_rss(cache.raw, name, meta)
+    rss = generate_rss(cache, name, meta)
     app.logger.debug(f"[{name}] generated podcast rss")
     cache.set_rss(rss)
 
