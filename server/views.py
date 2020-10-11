@@ -256,6 +256,7 @@ def index():
 
 
 @app.route('/podcast/<_id>')
+@app.route('/podcast/<_id>.xml')
 def podcast(_id):
     try:
         name = get_feed_name(_id)

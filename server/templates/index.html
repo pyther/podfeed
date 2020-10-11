@@ -22,7 +22,7 @@ body {
     <h1>Auto-generated Podcasts Feeds</h1>
     <ul>
       {%- for k,v in feeds.items() -%}
-      <li><a href="/podcast/{{k}}">{{k}}</a></li>
+      <li><a href="/podcast/{{k}}.xml">{{k}}</a></li>
       {% endfor -%}
     </ul>
     <div id="note">
