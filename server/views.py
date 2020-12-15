@@ -115,14 +115,12 @@ def get_items(data):
         year, month, day = re.match(r'.*/(\d{4})(\d{2})(\d{2}).*\.mp3', audio_url).groups()
         pub_date = rfc2822_date(year, month, day, '12:00:00', 'EST')
         audio_query = {k: v for k, v in (x.split('=', 1) for x in audio_query.split('&'))}
-        audio_size = audio_query['size']
         story_url = segment['storyUrl']
         duration = segment['duration']
         uid = segment['uid']
         values = {
             'title': title,
             'audio_url': audio_url,
-            'audio_size': audio_size,
             'story_url': story_url,
             'duration': duration,
             'uid': uid,
