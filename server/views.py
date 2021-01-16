@@ -8,6 +8,7 @@ import socket
 import re
 import calendar
 from xml.sax.saxutils import escape
+from wsgiref.handlers import format_date_time
 
 import jsonpickle
 import requests
@@ -43,12 +44,19 @@ def lru_cache(timeout: int, maxsize: int = 128, typed: bool = False):
 
 
 class Cache():
-    def __init__(self, key):
+    def __init__(self, key, timeout):
         self.name = key
         self.raw = None
         self.rss = None
         self.fetched = 0
         self.generated = 0
+        self.timeout = timeout
+
+    def is_expired(self):
+        age = int(time.time() - self.generated)
+        if age >= self.timeout:
+            return True
+        return False
 
     def set_raw(self, text):
         self.raw = text
@@ -58,13 +66,14 @@ class Cache():
         self.rss = text
         self.generated = time.time()
 
-    @property
-    def age(self):
-        return int(time.time() - self.generated)
-
     def response(self):
         response = make_response(self.rss)
         response.headers['Content-Type'] = 'application/xml'
+        expire_time = self.generated + self.timeout
+        response.headers['Expires'] = format_date_time(expire_time)
+        max_age = int(expire_time - time.time())
+        if max_age > 0:
+            response.headers['Cache-Control'] = f"public, max-age={max_age}, stale-if-error=43200"
         return response
 
     def load(self):
@@ -221,11 +230,11 @@ def feed(name):
         abort(404)
 
     # Load Cache
-    cache = Cache(name)
+    cache = Cache(name, CACHE_TIMEOUT)
     cache.load()
 
     # Retun RSS if cache is valid
-    if cache.age <= CACHE_TIMEOUT:
+    if not cache.is_expired():
         return cache.response()
 
     app.logger.debug(f"[{name}] cache expired: {CACHE_TIMEOUT} > {cache.age}")
@@ -266,4 +275,5 @@ def podcast(_id):
         name = get_feed_name(_id)
     except ValueError:
         abort(404)
-    return feed(name)
+    response = feed(name)
+    return response
