@@ -88,9 +88,10 @@ class Cache():
         self.fetched = obj.fetched
 
     def save(self):
-        with open(f'/dev/shm/nrfeed_{self.name}.json', 'w') as fd:
+        srcfile = f'/dev/shm/nrfeed_{self.name}.json'
+        with open(srcfile, 'w') as fd:
             fd.write(jsonpickle.encode(self))
-        app.logger.debug(f"[{self.name}] cache saved to disk")
+        app.logger.debug(f"wrote cache to {srcfile}")
 
 
 # Application needs to be restarted if feeds.json changes
@@ -237,24 +238,22 @@ def feed(name):
     if not cache.is_expired():
         return cache.response()
 
-    app.logger.debug(f"[{name}] cache expired: {CACHE_TIMEOUT} > {cache.age}")
     # Update cache
     try:
         req = get_source_url(meta['url'])
     except Exception as e:
-        app.logger.error(f"[{name}] connection error: {e}")
+        app.logger.error(f"connection error: {e}")
         abort(503, 'remote server unavailable')
     else:
         if req.ok:
             cache.set_raw(req.text)
-            app.logger.debug(f"[{name}] fetched newest data")
         else:
-            app.logger.error(f"[{name}] {meta['url']} responded [{req.status_code}]")
+            app.logger.error(f"status code {req.status_code} from {meta['url']}")
             abort(503, 'request to remote server was unsuccessful')
 
     # Generate RSS XML
     rss = generate_rss(cache, name, meta)
-    app.logger.debug(f"[{name}] generated podcast rss")
+    app.logger.info(f"generated rss for {name}")
     cache.set_rss(rss)
 
     # Write cache, close lock, return response
