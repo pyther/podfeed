@@ -1,21 +1,35 @@
 {
   "morning-edition": {
     "id": 3,
-    "url": "https://www.npr.org/programs/morning-edition/"
+    "url": "https://www.npr.org/programs/morning-edition/",
+    "category": ["News", "Daily News"],
+    "publication_time": "05:00",
+    "parser": "npr"
   },
   "all-things-considered": {
     "id": 2,
-    "url": "https://www.npr.org/programs/all-things-considered/"
+    "url": "https://www.npr.org/programs/all-things-considered/",
+    "category": ["News", "Daily News"],
+    "publication_time": "16:00",
+    "parser": "npr"
   },
   "weekend-edition-saturday": {
     "id": 7,
-    "url": "https://www.npr.org/programs/weekend-edition-saturday/"
+    "url": "https://www.npr.org/programs/weekend-edition-saturday/",
+    "category": ["News", "Daily News"],
+    "publication_time": "08:00",
+    "parser": "npr"
   },
   "weekend-edition-sunday": {
     "id": 10,
-    "url": "https://www.npr.org/programs/weekend-edition-sunday/"
+    "url": "https://www.npr.org/programs/weekend-edition-sunday/",
+    "category": ["News", "Daily News"],
+    "publication_time": "08:00",
+    "parser": "npr"
   },
   "fresh-air": {
-    "url": "https://www.npr.org/programs/fresh-air/"
+    "url": "https://www.npr.org/programs/fresh-air/",
+    "publication_time": "19:00",
+    "parser": "npr"
   }
 }
