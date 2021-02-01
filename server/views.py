@@ -1,4 +1,3 @@
-import functools
 import json
 import os
 import time
@@ -6,8 +5,9 @@ import datetime
 import pytz
 from xml.sax.saxutils import escape
 from wsgiref.handlers import format_date_time
+import cachetools.func
+import diskcache
 
-import jsonpickle
 import requests
 import podgen
 
@@ -23,95 +23,39 @@ from server import app
 CACHE_TIMEOUT = 300
 
 
-def lru_cache(timeout: int, maxsize: int = 128, typed: bool = False):
-    def wrapper_cache(func):
-        func = functools.lru_cache(maxsize=maxsize, typed=typed)(func)
-        func.delta = timeout * 10 ** 9
-        func.expiration = time.monotonic_ns() + func.delta
-
-        @functools.wraps(func)
-        def wrapped_func(*args, **kwargs):
-            if time.monotonic_ns() >= func.expiration:
-                func.cache_clear()
-                func.expiration = time.monotonic_ns() + func.delta
-            return func(*args, **kwargs)
-
-        wrapped_func.cache_info = func.cache_info
-        wrapped_func.cache_clear = func.cache_clear
-        return wrapped_func
-    return wrapper_cache
-
-
-class Cache():
-    def __init__(self, key, timeout):
-        self.name = key
-        self.raw = None
-        self.rss = None
-        self.fetched = 0
-        self.generated = 0
-        self.timeout = timeout
-
-    def is_expired(self):
-        age = int(time.time() - self.generated)
-        if age >= self.timeout:
-            return True
-        return False
-
-    def set_raw(self, text):
-        self.raw = text
-        self.fetched = time.time()
-
-    def set_rss(self, text):
-        self.rss = text
-        self.generated = time.time()
-
-    def response(self):
-        response = make_response(self.rss)
-        response.headers['Content-Type'] = 'application/xml'
-        expire_time = self.generated + self.timeout
-        response.headers['Expires'] = format_date_time(expire_time)
-        max_age = int(expire_time - time.time())
-        if max_age > 0:
-            response.headers['Cache-Control'] = f"public, max-age={max_age}, stale-if-error=43200"
-        return response
-
-    def load(self):
-        try:
-            obj = jsonpickle.decode(open(f'/dev/shm/nrfeed_{self.name}.json').read())
-        except FileNotFoundError:
-            return
-
-        self.rss = obj.rss
-        self.raw = obj.raw
-        self.generated = obj.generated
-        self.fetched = obj.fetched
-
-    def save(self):
-        srcfile = f'/dev/shm/nrfeed_{self.name}.json'
-        with open(srcfile, 'w') as fd:
-            fd.write(jsonpickle.encode(self))
-        app.logger.debug(f"wrote cache to {srcfile}")
-
-
 # Application needs to be restarted if feeds.json changes
-@functools.lru_cache
+@cachetools.func.lru_cache
 def get_feeds():
     return json.load(open(os.path.join(app.root_path, 'feeds.json')))
 
 
+@cachetools.func.lru_cache
+def get_feed_name(id_):
+    feeds = get_feeds()
+
+    if id_ in feeds:
+        return id_
+
+    if id_.isdigit():
+        for key, value in feeds.items():
+            if int(id_) == value['id']:
+                return key
+    raise ValueError
+
+
 # One request per minute per URL. If there is a bug we don't want to kill the remote server.
-@lru_cache(60)
-def get_source_url(url):
+@cachetools.func.ttl_cache(maxsize=128, ttl=60)
+def get_url(url):
     return requests.get(url, timeout=5)
 
 
-def generate_rss(cache, name, meta):
+def generate_rss(text, ts, name, meta):
     if meta['parser'] == 'npr':
         publication_time = meta.get('publication_time', None)
         if publication_time:
-            data = NprParser(cache.raw, name, publication_time=publication_time)
+            data = NprParser(text, name, publication_time=publication_time)
         else:
-            data = NprParser(cache.raw, name)
+            data = NprParser(text, name)
     else:
         raise ValueError(f"unknown parser type {meta['parser']}")
 
@@ -161,7 +105,7 @@ def generate_rss(cache, name, meta):
     if image:
         podcast.image = image
     podcast.explicit = False
-    podcast.last_updated = pytz.utc.localize(datetime.datetime.fromtimestamp(cache.fetched))
+    podcast.last_updated = pytz.utc.localize(datetime.datetime.utcfromtimestamp(ts))
     podcast.generator = "pyther/nrfeed"
     podcast.episodes = episodes
     podcast.publication_date = False
@@ -169,57 +113,45 @@ def generate_rss(cache, name, meta):
     return podcast.rss_str()
 
 
-def get_feed_name(id_):
-    feeds = get_feeds()
-
-    if id_ in feeds:
-        return id_
-
-    if id_.isdigit():
-        for key, value in feeds.items():
-            if int(id_) == value['id']:
-                return key
-    raise ValueError
-
-
 # Check if cache has expired every 10 seconds, serve from cache otherwise
-@lru_cache(1)
+@cachetools.func.ttl_cache(maxsize=128, ttl=1)
 def feed(name):
-    # Return 404 if feed not in feeds.json
-    try:
-        meta = get_feeds()[name]
-    except ValueError:
-        abort(404)
+    meta = get_feeds()[name]
 
     # Load Cache
-    cache = Cache(name, CACHE_TIMEOUT)
-    cache.load()
+    cache = diskcache.Cache('/tmp/nrfeed')
 
-    # Retun RSS if cache is valid
-    if not cache.is_expired():
-        return cache.response()
-
-    # Update cache
-    try:
-        req = get_source_url(meta['url'])
-    except Exception as e:
-        app.logger.error(f"connection error: {e}")
-        abort(503, 'remote server unavailable')
-    else:
-        if req.ok:
-            cache.set_raw(req.text)
+    # cache is expired if item dosen't exist
+    if name not in cache:
+        # Update cache
+        try:
+            req = get_url(meta['url'])
+        except Exception as e:
+            app.logger.error(f"connection error: {e}")
+            abort(503, 'remote server unavailable')
         else:
-            app.logger.error(f"status code {req.status_code} from {meta['url']}")
-            abort(503, 'request to remote server was unsuccessful')
+            if req.ok:
+                cache.set(name, req.text, expire=CACHE_TIMEOUT)
+            else:
+                app.logger.error(f"status code {req.status_code} from {meta['url']}")
+                abort(503, 'request to remote server was unsuccessful')
+
+    # Get expiration time
+    text, expire_time = cache.get(name, expire_time=True)
+    expire_time = int(expire_time)
+    cache.close()
 
     # Generate RSS XML
-    rss = generate_rss(cache, name, meta)
+    rss = generate_rss(text, expire_time, name, meta)
     app.logger.info(f"generated rss for {name}")
-    cache.set_rss(rss)
 
-    # Write cache, close lock, return response
-    cache.save()
-    return cache.response()
+    response = make_response(rss)
+    response.headers['Content-Type'] = 'application/xml'
+    if expire_time:
+        max_age = int(expire_time - time.time())
+        response.headers['Expires'] = format_date_time(expire_time)
+        response.headers['Cache-Control'] = f"public, max-age={max_age}, stale-if-error=43200"
+    return response
 
 
 @app.route('/')
