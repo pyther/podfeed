@@ -132,6 +132,7 @@ def feed(name):
         else:
             if req.ok:
                 cache.set(name, req.text, expire=CACHE_TIMEOUT)
+                app.logger.info(f"cache updated for {name}")
             else:
                 app.logger.error(f"status code {req.status_code} from {meta['url']}")
                 abort(503, 'request to remote server was unsuccessful')
