@@ -1,4 +1,4 @@
-# nrfeed
+# podfeed
 Auto-generates RSS Podcast Feeds
 
 A simple flask app that extracts data from a remote source and generate an
@@ -17,4 +17,4 @@ $ python run.py
 There are various guides on setting up flasks apps in production.
 
 If you use Docker, see the included Dockerfile.
-Or use the published build: ```docker run -d --restart always -p 8010:8000 --name nrfeed mgyurgyik/nrfeed:latest```
+Or use the published build: ```docker run -d --restart always -p 8010:8000 --name podfeed mgyurgyik/podfeed:latest```
