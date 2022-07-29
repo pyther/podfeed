@@ -1,7 +1,7 @@
-FROM python:3.9-alpine as base
+FROM python:3.10-alpine as base
 WORKDIR /app
 ADD server /app/server
-ADD setup.py /app
+ADD setup.py MANIFEST.in /app
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -13,7 +13,8 @@ RUN pip install . gunicorn --no-cache-dir --global-option="build_ext" --global-o
 #apk del .build-deps
 
 
-FROM python:3.9-alpine
+FROM python:3.10-alpine
+RUN apk add --no-cache libxml2 libxslt
 ENV VIRTUAL_ENV=/opt/venv
 COPY --from=base $VIRTUAL_ENV $VIRTUAL_ENV
 RUN python3 -m venv $VIRTUAL_ENV

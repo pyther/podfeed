@@ -1,2 +1,2 @@
-recursive-include app/templates *
-recursive-include app/static *
+include server/feeds.json
+recursive-include server/templates *
