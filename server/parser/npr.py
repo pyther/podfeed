@@ -45,7 +45,20 @@ class NprEpisode(BaseEpisode):
 
     @property
     def publication_date(self):
-        year, month, day = re.match(r'.*/(\d{4})(\d{2})(\d{2}).*\.mp3', self.media_url).groups()
+        # The media_url contain the publication date in the filename, ex:
+        # 20230917_wesun_ukraine_step-back.mp3. Recently, some media_urls do
+        # not have the publication date, ex: NPR7011631224.mp3. Fallback, to
+        # the story_url to obtain the publication date.
+
+        media_match = re.match(r'.*/(\d{4})(\d{2})(\d{2}).*\.mp3', self.media_url)
+        story_match = re.match(r'.*/(\d{4})/(\d{2})/(\d{2})/', self.link)
+        if media_match:
+            year, month, day = media_match.groups()
+        elif story_match:
+            year, month, day = story_match.groups()
+        else:
+            raise ValueError(f'Unable to determine publication date from {self.media_url} or {self.story_url}')
+
         date = datetime.date(int(year), int(month), int(day))
         time = datetime.time(*self.publication_time)
         dt = datetime.datetime.combine(date, time)
