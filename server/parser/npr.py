@@ -101,9 +101,19 @@ class NprParser(BaseParser):
 
     @property
     def episodes(self):
-        items = []
-        play_all = self.soup.findAll(attrs={'data-play-all': True})
+        results = []
+
+        # Daily Stories
+        storylist = self.soup.find("div", {"id": "story-list"}).findAll("div", attrs={'data-audio': True})
+        for story in storylist:
+            segment = json.loads(story.get('data-audio'))
+            results.append(NprEpisode(segment, publication_time=self.__publication_time))
+
+        # Full Episodes (previous days)
+        program_shows = self.soup.findAll('article', {"class": "program-show"})
+        play_all = [show.find(attrs={'data-play-all': True}) for show in program_shows]
         data_all = [json.loads(x.get('data-play-all')) for x in play_all]
-        for data in data_all:
-            items.extend([NprEpisode(segment, publication_time=self.__publication_time) for segment in data['audioData']])
-        return items
+        for show in data_all:
+            for segment in show['audioData']:
+                results.append(NprEpisode(segment, publication_time=self.__publication_time))
+        return results
