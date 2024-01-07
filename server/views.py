@@ -49,7 +49,7 @@ def get_url(url):
     return requests.get(url, timeout=5)
 
 
-def generate_rss(text, ts, name, meta):
+def generate_rss(text, name, meta):
     if meta['parser'] == 'npr':
         publication_time = meta.get('publication_time', None)
         if publication_time:
@@ -105,7 +105,7 @@ def generate_rss(text, ts, name, meta):
     if image:
         podcast.image = image
     podcast.explicit = False
-    podcast.last_updated = pytz.utc.localize(datetime.datetime.utcfromtimestamp(ts))
+    podcast.last_updated = pytz.utc.localize(datetime.datetime.now())
     podcast.generator = "pyther/podfeed"
     podcast.episodes = episodes
     podcast.publication_date = False
@@ -143,7 +143,7 @@ def feed(name):
     cache.close()
 
     # Generate RSS XML
-    rss = generate_rss(text, expire_time, name, meta)
+    rss = generate_rss(text, name, meta)
     app.logger.info(f"generated rss for {name}")
 
     response = make_response(rss)
