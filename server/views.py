@@ -148,10 +148,9 @@ def feed(name):
 
     response = make_response(rss)
     response.headers['Content-Type'] = 'application/xml'
+    response.headers['Cache-Control'] = f"public, stale-if-error=86400"
     if expire_time:
-        max_age = int(expire_time - time.time())
         response.headers['Expires'] = format_date_time(expire_time)
-        response.headers['Cache-Control'] = f"public, max-age={max_age}, stale-if-error=43200"
     return response
 
 
