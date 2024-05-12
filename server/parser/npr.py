@@ -112,6 +112,7 @@ class NprParser(BaseParser):
         # Full Episodes (previous days)
         program_shows = self.soup.findAll('article', {"class": "program-show"})
         play_all = [show.find(attrs={'data-play-all': True}) for show in program_shows]
+        play_all = [x for x in play_all if x]
         data_all = [json.loads(x.get('data-play-all')) for x in play_all]
         for show in data_all:
             for segment in show['audioData']:
