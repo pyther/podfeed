@@ -38,6 +38,8 @@ def get_feed_name(id_):
 
     if id_.isdigit():
         for key, value in feeds.items():
+            if 'id' not in value:
+                continue
             if int(id_) == value['id']:
                 return key
     raise ValueError
@@ -132,7 +134,7 @@ def feed(name):
         else:
             if req.ok:
                 cache.set(name, req.text, expire=CACHE_TIMEOUT)
-                app.logger.info(f"cache updated for {name}")
+                app.logger.info(f"podcast feed updated for {name}")
             else:
                 app.logger.error(f"status code {req.status_code} from {meta['url']}")
                 abort(503, 'request to remote server was unsuccessful')
@@ -144,7 +146,6 @@ def feed(name):
 
     # Generate RSS XML
     rss = generate_rss(text, name, meta)
-    app.logger.info(f"generated rss for {name}")
 
     response = make_response(rss)
     response.headers['Content-Type'] = 'application/xml'

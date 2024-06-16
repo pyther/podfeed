@@ -1,22 +1,16 @@
-FROM python:3.11-alpine as base
+FROM python:3.12-alpine
 WORKDIR /app
+ENV PIP_ROOT_USER_ACTION ignore
+ENV PYTHONDONTWRITEBYTECODE 1
+
+ADD entrypoint.sh /
 ADD server /app/server
-ADD setup.py MANIFEST.in /app
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ADD setup.py MANIFEST.in requirements.txt /app
 
-RUN apk add --no-cache libxml2 libxslt
-RUN apk add --no-cache --virtual .build-deps gcc musl-dev libxml2-dev libxslt-dev
-RUN pip install . gunicorn --no-cache-dir --global-option="build_ext" --global-option="-j5"
-#python setup.py install &&\
-#apk del .build-deps
+RUN apk update && \
+    apk add --no-cache libxml2 libxslt
+RUN pip install --upgrade pip --no-cache-dir
+RUN pip install -r requirements.txt --no-cache-dir && \
+    pip install gunicorn --no-cache-dir
 
-
-FROM python:3.11-alpine
-RUN apk add --no-cache libxml2 libxslt
-ENV VIRTUAL_ENV=/opt/venv
-COPY --from=base $VIRTUAL_ENV $VIRTUAL_ENV
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-CMD ["gunicorn", "--log-level=info", "-b", "0.0.0.0:8152", "server:app"]
+ENTRYPOINT ["/entrypoint.sh"]
