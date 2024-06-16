@@ -2,6 +2,7 @@
   "morning-edition": {
     "id": 3,
     "url": "https://www.npr.org/programs/morning-edition/",
+    "image": "https://media.npr.org/assets/img/2022/09/23/morning-edition_tile_npr-network-01_sq-c3c3fa068809b6c5afa3b6597feb9a0346e2e732.jpg",
     "category": ["News", "Daily News"],
     "publication_time": "05:00",
     "parser": "npr"
@@ -9,6 +10,7 @@
   "all-things-considered": {
     "id": 2,
     "url": "https://www.npr.org/programs/all-things-considered/",
+    "image": "https://media.npr.org/assets/img/2022/09/23/all-things-considered_tile_npr-network_sq-d0a3240a9b7a682c735d6f004d9d48f42de13030.jpg",
     "category": ["News", "Daily News"],
     "publication_time": "16:00",
     "parser": "npr"
@@ -16,6 +18,7 @@
   "weekend-edition-saturday": {
     "id": 7,
     "url": "https://www.npr.org/programs/weekend-edition-saturday/",
+    "image": "https://media.npr.org/assets/img/2022/09/27/weekend-edition-sat_tile_npr-network-01_sq-b3b42a8184b8a42e34efd1504ad29b9ce0ebe078.jpg",
     "category": ["News", "Daily News"],
     "publication_time": "08:00",
     "parser": "npr"
@@ -23,12 +26,14 @@
   "weekend-edition-sunday": {
     "id": 10,
     "url": "https://www.npr.org/programs/weekend-edition-sunday/",
+    "image": "https://media.npr.org/assets/img/2022/09/27/weekend-edition-sun_tile_npr-network-01_sq-af954829550c4ca269df47dec307fcb1ec912fed.jpg",
     "category": ["News", "Daily News"],
     "publication_time": "08:00",
     "parser": "npr"
   },
   "fresh-air": {
     "url": "https://www.npr.org/programs/fresh-air/",
+    "image": "https://media.npr.org/assets/img/2022/09/23/fresh-air_tile_npr-network-01_sq-a6f7c547c8e78b8230edc7fc3c32005de3756e0d.jpg",
     "publication_time": "19:00",
     "parser": "npr"
   }
